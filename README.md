@@ -4,7 +4,7 @@ A retro-styled Pomodoro productivity app with task management, built with React,
 
 ---
 
-## Features
+## Features 
 
 ### Pomodoro Timer
 - Three modes: **Focus**, **Short Break**, and **Long Break**
