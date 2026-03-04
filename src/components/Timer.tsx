@@ -10,11 +10,20 @@ import { useWakeLock } from '../hooks/useWakeLock';
 
 export const Timer = () => {
   const dispatch = useDispatch();
-  const { timeLeft, isRunning, mode, theme } = useSelector((state: RootState) => state.pomodoro);
+  const { timeLeft, isRunning, mode, theme, config } = useSelector((state: RootState) => state.pomodoro);
   
   // Determine current theme color based on mode
   const currentThemeColor = mode === 'focus' ? theme.focusColor : theme.breakColor;
   const t = getTheme(currentThemeColor);
+
+  const totalSeconds =
+    mode === 'focus'
+      ? config.focusDuration * 60
+      : mode === 'shortBreak'
+      ? config.shortBreakDuration * 60
+      : config.longBreakDuration * 60;
+
+  const elapsedPercent = Math.min(((totalSeconds - timeLeft) / totalSeconds) * 100, 100);
 
   useWakeLock(isRunning);
 
@@ -85,11 +94,11 @@ export const Timer = () => {
           <span>{formatTime(timeLeft)}</span>
           <span className="text-4xl text-zinc-700 ml-2">.{ms.toString().padStart(2, '0')}</span>
         </div>
-        <div className={`absolute -bottom-4 left-0 w-full h-1 bg-zinc-900`}>
-             <div 
-                className={`h-full bg-${currentThemeColor}-500 transition-all duration-1000`} 
-                style={{ width: `${(timeLeft / (mode === 'focus' ? 25*60 : 5*60)) * 100}%` }} 
-             />
+        <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-80 h-1 bg-zinc-900 overflow-hidden">
+          <div
+            className={`h-full bg-${currentThemeColor}-500 transition-all duration-1000`}
+            style={{ width: `${elapsedPercent}%` }}
+          />
         </div>
       </div>
 

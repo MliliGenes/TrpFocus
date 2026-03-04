@@ -1,297 +1,269 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store/store';
 import { motion, AnimatePresence } from 'motion/react';
 
-const PIXEL_SIZE = 6; // Size of each "pixel" in rem/px multiplier
+// ─── Sprites ────────────────────────────────────────────────────────────────
+// Each entry is an 8×8 grid: 0 = off, 1 = on
 
-// 8x8 Pixel Art Sprites
-const SPRITES = {
+type Sprite = number[][];
+
+const SPRITES: Record<string, Sprite> = {
   idle: [
     [0,0,0,0,0,0,0,0],
-    [0,1,1,0,0,1,1,0],
-    [0,1,1,0,0,1,1,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,1,0,0,1,0,0],
     [0,0,0,0,0,0,0,0],
-    [0,0,1,1,1,1,0,0],
-    [0,1,0,0,0,0,1,0],
-    [0,0,1,1,1,1,0,0],
-    [0,0,0,0,0,0,0,0],
-  ],
-  focus: [
-    [0,0,0,0,0,0,0,0],
-    [0,1,1,1,1,1,1,0], // Goggles/Visor
-    [0,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,1,1,1,1,0,0],
-    [0,0,1,1,1,1,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-  ],
-  break: [
-    [0,0,0,0,0,0,0,0],
-    [0,1,1,0,0,1,1,0], // Closed eyes
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,1,1,0,0,0], // Small mouth
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-  ],
-  happy: [
-    [0,0,0,0,0,0,0,0],
-    [0,0,1,0,0,1,0,0], // ^ ^ eyes
-    [0,1,0,1,1,0,1,0],
-    [0,0,0,0,0,0,0,0],
-    [0,1,0,0,0,0,1,0], // Smile
-    [0,0,1,1,1,1,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-  ],
-  excited: [
-    [0,0,0,0,0,0,0,0],
-    [0,1,1,0,0,1,1,0], // Wide eyes
-    [0,1,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0],
-    [0,1,0,0,0,0,1,0], // Big smile
-    [0,1,1,1,1,1,1,0],
-    [0,0,1,1,1,1,0,0],
-    [0,0,0,0,0,0,0,0],
-  ],
-  thinking: [
-    [0,0,0,0,0,0,0,0],
-    [0,1,1,0,0,1,1,0],
-    [0,1,1,0,0,1,1,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,1,1,1,0,0], // Hmm mouth
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,0,0,0,0,0],
-  ],
-  surprised: [
-    [0,0,0,0,0,0,0,0],
-    [0,1,0,0,0,0,1,0], // Small eyes
-    [0,1,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0],
-    [0,0,0,1,1,0,0,0], // O mouth
+    [0,0,1,0,0,1,0,0],
     [0,0,0,1,1,0,0,0],
     [0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0],
   ],
-};
-
-const MESSAGES = {
-  idle: [
-    "I'm ready!", "Let's work!", "System online.", "Awaiting input.", 
-    "Ready to roll!", "Let's be productive!", "What's next?", "Standing by.",
-    "Hello friend!", "I'm bored...", "Let's do this.", "Waiting for you."
+  blink: [
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,0,1,1,0,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
   ],
   focus: [
-    "Focusing...", "Crunching data...", "Do not disturb.", "In the zone.",
-    "You got this!", "Stay sharp.", "Keep going!", "Almost there!",
-    "Laser focus.", "Processing...", "Don't stop now!", "Flow state.",
-    "You're doing great!", "Keep pushing!", "Stay with it!", "Eyes on the prize."
+    [0,0,0,0,0,0,0,0],
+    [0,1,1,1,1,1,1,0],
+    [0,1,0,1,1,0,1,0],
+    [0,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,1,1,1,1,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
   ],
   break: [
-    "Recharging...", "Zzz...", "Coffee time?", "Cooling down.",
-    "Take a breath.", "Relax...", "Unwinding...", "System pause.",
-    "Stretch a bit!", "Hydrate!", "Good break.", "Resting circuits."
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,1,1,0,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
   ],
   happy: [
-    "Great job!", "Task complete!", "You rock!", "Level up!",
-    "Awesome!", "Way to go!", "Victory!", "Success!",
-    "Nailed it!", "Woohoo!", "Fantastic!", "Brilliant!",
-    "So proud!", "You did it!", "Amazing work!", "High five!"
+    [0,0,0,0,0,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,1,1,0,0,1,1,0],
+    [0,0,0,0,0,0,0,0],
+    [0,1,0,0,0,0,1,0],
+    [0,0,1,1,1,1,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
   ],
-  excited: [
-    "So much energy!", "Let's do this!", "I'm pumped!", "Let's gooo!",
-    "Hyper speed!", "Maximum power!", "Can't stop us!", "Electric!"
+  sad: [
+    [0,0,0,0,0,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,1,1,0,0,0],
+    [0,0,1,0,0,1,0,0],
+    [0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0],
   ],
-  thinking: [
-    "Hmm...", "Calculating...", "Analyzing...", "Processing...",
-    "Thinking...", "One moment...", "Computing...", "Wait..."
-  ],
-  cool: [
-    "Stay cool.", "No sweat.", "Easy peasy.", "Smooth.",
-    "Chill vibes.", "Under control.", "Looking good.", "Style points."
-  ],
-  surprised: [
-    "Whoa!", "Oh my!", "Wow!", "Incredible!",
-    "Did you see that?", "Unbelievable!", "No way!", "Gasp!"
-  ]
 };
+
+// ─── Messages ────────────────────────────────────────────────────────────────
+
+const MESSAGES: Record<string, string[]> = {
+  idle:  ['Waiting...', "What's next?", 'Ready!', 'Standing by.', 'Hello!', 'Bored...'],
+  focus: ['In the zone.', 'Keep going!', 'Stay sharp.', "Don't stop!", 'Flow state.', 'Focus!'],
+  break: ['Take a breath.', 'Stretch!', 'Hydrate!', 'Rest up.', 'Recharging...', 'Zzz...'],
+  happy: ['Great job!', 'You rock!', 'Awesome!', 'Nailed it!', 'Woohoo!', 'Level up!'],
+  sad:   ["Don't give up.", 'You got this.', 'Keep trying!', 'Almost there!'],
+};
+
+// ─── Colors per mood ─────────────────────────────────────────────────────────
+
+const MOOD_COLOR: Record<string, string> = {
+  idle:  '#71717a', // zinc-500
+  blink: '#71717a',
+  focus: '#818cf8', // indigo-400
+  break: '#34d399', // emerald-400
+  happy: '#f472b6', // pink-400
+  sad:   '#60a5fa', // blue-400
+};
+
+type Mood = keyof typeof SPRITES;
+
+// ─── Component ───────────────────────────────────────────────────────────────
 
 export const RetroPet = () => {
   const { mode, isRunning } = useSelector((state: RootState) => state.pomodoro);
-  const completedTasks = useSelector((state: RootState) => 
-    state.tasks.items.filter(t => t.completed).length
+  const completedCount = useSelector(
+    (state: RootState) => state.tasks.items.filter(t => t.completed).length,
   );
-  
-  const [mood, setMood] = useState<'idle' | 'focus' | 'break' | 'happy' | 'excited' | 'thinking' | 'cool' | 'surprised'>('idle');
-  const [message, setMessage] = useState("");
+
+  const [mood, setMood] = useState<Mood>('idle');
+  const [message, setMessage] = useState('Hello!');
   const [hearts, setHearts] = useState<{ id: number; x: number; y: number }[]>([]);
-  const [prevCompletedCount, setPrevCompletedCount] = useState(completedTasks);
 
-  // Determine mood based on app state
-  useEffect(() => {
-    // If we just completed a task, stay happy for a bit
-    if (mood === 'happy' || mood === 'excited' || mood === 'surprised') return;
+  // Stable base mood (driven by timer state), separate from click overrides
+  const baseMoodRef = useRef<Mood>('idle');
+  const overrideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevCompletedRef = useRef(completedCount);
 
-    if (!isRunning) {
-      // Only switch to idle moods if we are NOT in a break mode that is running
-      // If we are paused in focus mode -> idle/thinking/cool
-      // If we are paused in break mode -> idle/thinking/cool
-      
-      // Randomly switch between idle, thinking, cool, and surprised when not running
-      const idleMoods: ('idle' | 'thinking' | 'cool' | 'surprised')[] = ['idle', 'idle', 'idle', 'thinking', 'cool', 'surprised'];
-      // Only change mood occasionally to prevent flickering, or if the current mood is not appropriate for idle
-      if (!['idle', 'thinking', 'cool', 'surprised'].includes(mood)) {
-         setMood(idleMoods[Math.floor(Math.random() * idleMoods.length)]);
-      }
-    } else {
-      // Timer IS running
-      if (mode === 'shortBreak' || mode === 'longBreak') {
-        setMood('break');
-      } else {
-        setMood('focus');
-      }
-    }
-  }, [mode, isRunning, mood]);
-
-  // Randomly change idle mood occasionally
-  useEffect(() => {
-    if (isRunning || mood === 'happy' || mood === 'excited' || mood === 'surprised') return;
-
-    const interval = setInterval(() => {
-       const idleMoods: ('idle' | 'thinking' | 'cool' | 'surprised')[] = ['idle', 'idle', 'idle', 'thinking', 'cool', 'surprised'];
-       setMood(idleMoods[Math.floor(Math.random() * idleMoods.length)]);
-    }, 8000); // Change idle mood every 8 seconds
-
-    return () => clearInterval(interval);
-  }, [isRunning, mood]);
-
-  // React to task completion
-  useEffect(() => {
-    if (completedTasks > prevCompletedCount) {
-      // Randomly choose between happy, excited, and surprised
-      const moods: ('happy' | 'excited' | 'surprised')[] = ['happy', 'excited', 'surprised'];
-      const successMood = moods[Math.floor(Math.random() * moods.length)];
-      setMood(successMood);
-      setMessage(MESSAGES[successMood][Math.floor(Math.random() * MESSAGES[successMood].length)]);
-      
-      // Celebrate with hearts
-      const newHearts = Array.from({ length: 5 }).map((_, i) => ({
-        id: Date.now() + i,
-        x: 50 + (Math.random() * 100 - 50),
-        y: 50 + (Math.random() * 50 - 25),
-      }));
-      setHearts(prev => [...prev, ...newHearts]);
-      
-      // Reset mood after 3 seconds
-      const timer = setTimeout(() => {
-        setMood(prev => {
-            if (!isRunning) return 'idle';
-            if (mode === 'shortBreak' || mode === 'longBreak') return 'break';
-            return 'focus';
-        });
-        setHearts([]);
-      }, 3000);
-      
-      setPrevCompletedCount(completedTasks);
-      return () => clearTimeout(timer);
-    }
-    setPrevCompletedCount(completedTasks);
-  }, [completedTasks]);
-
-  // Random messages
-  useEffect(() => {
-    if (mood === 'happy' || mood === 'excited' || mood === 'surprised') return; // Don't override happy/excited/surprised message
-
-    const updateMessage = () => {
-      const options = MESSAGES[mood];
-      setMessage(options[Math.floor(Math.random() * options.length)]);
-    };
-    
-    updateMessage();
-    const interval = setInterval(updateMessage, 5000);
-    return () => clearInterval(interval);
-  }, [mood]);
-
-  const handlePet = (e: React.MouseEvent) => {
-    // Add a heart
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const newHeart = { id: Date.now(), x, y };
-    setHearts(prev => [...prev, newHeart]);
-    
-    // Temporarily happy
-    const prevMood = mood;
-    setMood('happy');
-    setTimeout(() => setMood(prevMood), 1000);
-
-    // Remove heart after animation
-    setTimeout(() => {
-      setHearts(prev => prev.filter(h => h.id !== newHeart.id));
-    }, 1000);
+  // Pick a random message for a given mood
+  const pickMessage = (m: Mood) => {
+    const list = MESSAGES[m] ?? MESSAGES.idle;
+    return list[Math.floor(Math.random() * list.length)];
   };
 
-  const currentSprite = SPRITES[mood];
+  // Apply a temporary mood override then revert to base
+  const applyOverride = (m: Mood, durationMs: number) => {
+    if (overrideTimerRef.current) clearTimeout(overrideTimerRef.current);
+    setMood(m);
+    setMessage(pickMessage(m));
+    overrideTimerRef.current = setTimeout(() => {
+      setMood(baseMoodRef.current);
+      setMessage(pickMessage(baseMoodRef.current));
+      overrideTimerRef.current = null;
+    }, durationMs);
+  };
+
+  // ── Derive base mood from timer state ─────────────────────────────────────
+  useEffect(() => {
+    let next: Mood = 'idle';
+    if (isRunning) {
+      next = mode === 'focus' ? 'focus' : 'break';
+    }
+    baseMoodRef.current = next;
+
+    // Only update displayed mood if no override is active
+    if (!overrideTimerRef.current) {
+      setMood(next);
+      setMessage(pickMessage(next));
+    }
+  }, [isRunning, mode]);
+
+  // ── React to task completion ───────────────────────────────────────────────
+  useEffect(() => {
+    if (completedCount > prevCompletedRef.current) {
+      applyOverride('happy', 3000);
+      // Burst of hearts from the centre of the pet
+      setHearts(
+        Array.from({ length: 5 }, (_, i) => ({
+          id: Date.now() + i,
+          x: Math.random() * 40 - 20,
+          y: Math.random() * 20 - 10,
+        })),
+      );
+      setTimeout(() => setHearts([]), 1200);
+    }
+    prevCompletedRef.current = completedCount;
+  }, [completedCount]);
+
+  // ── Occasional blink while idle ────────────────────────────────────────────
+  useEffect(() => {
+    if (mood !== 'idle') return;
+    const schedule = () => {
+      const delay = 3000 + Math.random() * 4000;
+      return setTimeout(() => {
+        setMood('blink');
+        setTimeout(() => {
+          setMood('idle');
+          schedule();
+        }, 150);
+      }, delay);
+    };
+    const t = schedule();
+    return () => clearTimeout(t);
+  }, [mood]);
+
+  // ── Rotate idle messages ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (overrideTimerRef.current) return;
+    const t = setInterval(() => {
+      if (!overrideTimerRef.current) {
+        setMessage(pickMessage(baseMoodRef.current));
+      }
+    }, 6000);
+    return () => clearInterval(t);
+  }, []);
+
+  // ── Pet click handler ──────────────────────────────────────────────────────
+  const lastClickRef = useRef(0);
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Ignore the second click of a double-click (< 300 ms since last click)
+    const now = Date.now();
+    if (now - lastClickRef.current < 300) return;
+    lastClickRef.current = now;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const heart = {
+      id: now,
+      x: e.clientX - rect.left - rect.width / 2,
+      y: e.clientY - rect.top - rect.height / 2,
+    };
+    setHearts(prev => [...prev, heart]);
+    setTimeout(() => setHearts(prev => prev.filter(h => h.id !== heart.id)), 900);
+    applyOverride('happy', 900);
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  const sprite = SPRITES[mood] ?? SPRITES.idle;
+  const color  = MOOD_COLOR[mood] ?? MOOD_COLOR.idle;
 
   return (
-    <motion.div 
+    <motion.div
       drag
       dragMomentum={false}
       initial={{ opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="fixed bottom-10 right-10 z-50 flex flex-col items-center cursor-grab active:cursor-grabbing"
+      className="fixed bottom-8 right-8 z-50 flex flex-col items-center select-none cursor-grab active:cursor-grabbing"
     >
-      {/* Speech Bubble */}
-      <div className="mb-3 relative bg-zinc-800 px-3 py-1.5 rounded-lg border border-zinc-700 shadow-lg">
+      {/* Speech bubble */}
+      <div className="mb-2 bg-zinc-900 border border-zinc-700 rounded px-2.5 py-1 shadow-lg">
         <p className="font-mono text-[10px] text-zinc-300 whitespace-nowrap">{message}</p>
-        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-zinc-700"></div>
+        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-1.5 overflow-hidden">
+          <div className="w-2 h-2 bg-zinc-700 rotate-45 mx-auto -mt-1" />
+        </div>
       </div>
 
-      {/* The Pet */}
-      <div 
-        className="relative group"
-        onClick={handlePet}
+      {/* Pixel pet */}
+      <div
+        className="relative cursor-pointer"
+        onClick={handleClick}
+        onDoubleClick={e => e.stopPropagation()}
       >
-        <div className="grid grid-cols-8 gap-0.5 p-1.5 bg-zinc-900/90 rounded-lg border border-zinc-800 transition-transform group-hover:scale-105 active:scale-95 shadow-xl shadow-black/50 backdrop-blur-sm">
-          {currentSprite.flat().map((pixel, index) => (
-            <motion.div
-              key={index}
-              initial={false}
-              animate={{
-                backgroundColor: pixel ? (mood === 'break' ? '#60a5fa' : mood === 'focus' ? '#ef4444' : (mood === 'happy' || mood === 'excited' || mood === 'surprised') ? '#f472b6' : '#22c55e') : 'transparent',
-                opacity: pixel ? 1 : 0.1,
-                scale: pixel ? 1 : 0.8,
-              }}
-              transition={{ duration: 0.2 }}
-              className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-[0.5px] ${pixel ? 'shadow-[0_0_4px_currentColor]' : ''}`}
+        <div className="grid grid-cols-8 gap-px p-1.5 bg-zinc-900 rounded border border-zinc-800 shadow-lg">
+          {sprite.flat().map((on, i) => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-[1px]"
+              style={on ? { backgroundColor: color } : undefined}
             />
           ))}
         </div>
 
-        {/* Hearts Container */}
-        <div className="absolute inset-0 pointer-events-none overflow-visible">
-          <AnimatePresence>
-            {hearts.map(heart => (
-              <motion.div
-                key={heart.id}
-                initial={{ opacity: 1, y: heart.y, x: heart.x, scale: 0.5 }}
-                animate={{ opacity: 0, y: heart.y - 50, scale: 1.5 }}
-                exit={{ opacity: 0 }}
-                className="absolute text-pink-500 font-bold text-xs"
-              >
-                ♥
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        {/* Hearts */}
+        <AnimatePresence>
+          {hearts.map(h => (
+            <motion.span
+              key={h.id}
+              initial={{ opacity: 1, scale: 0.6, x: h.x, y: h.y }}
+              animate={{ opacity: 0, scale: 1.4, y: h.y - 36 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.8 }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-pink-400 text-xs pointer-events-none"
+            >
+              ♥
+            </motion.span>
+          ))}
+        </AnimatePresence>
       </div>
-      
-      <p className="mt-2 text-[8px] text-zinc-600 font-mono uppercase tracking-widest bg-zinc-950/50 px-1 rounded">v1.3</p>
+
+      <p className="mt-1.5 text-[8px] text-zinc-700 font-mono tracking-widest">v2.0</p>
     </motion.div>
   );
 };
+
