@@ -1,0 +1,5 @@
+{
+  "name": "Trp_Focus",
+  "description": "A monochromatic Pomodoro timer and Todo list with subtasks, local storage persistence, and customizable themes.",
+  "requestFramePermissions": []
+}
